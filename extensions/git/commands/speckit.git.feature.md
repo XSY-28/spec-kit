@@ -1,5 +1,9 @@
 ---
 description: "Create a feature branch with sequential or timestamp numbering"
+scripts:
+  sh: scripts/bash/create-new-feature-branch.sh --json
+  ps: scripts/powershell/create-new-feature-branch.ps1 -Json
+  py: scripts/python/create_new_feature_branch.py --json
 ---
 
 # Create Feature Branch
@@ -55,16 +59,14 @@ Generate a concise short name (2-4 words) for the branch:
 - Use action-noun format when possible (e.g., "add-user-auth", "fix-payment-bug")
 - Preserve technical terms and acronyms (OAuth2, API, JWT, etc.)
 
-Run the appropriate script based on your platform:
+Start with `{SCRIPT}` and append the arguments for the selected script:
 
-- **Bash**: `.specify/extensions/git/scripts/bash/create-new-feature-branch.sh --json --short-name "<short-name>" "<feature description>"`
-- **Bash (timestamp)**: `.specify/extensions/git/scripts/bash/create-new-feature-branch.sh --json --timestamp --short-name "<short-name>" "<feature description>"`
-- **PowerShell**: `.specify/extensions/git/scripts/powershell/create-new-feature-branch.ps1 -Json -ShortName "<short-name>" "<feature description>"`
-- **PowerShell (timestamp)**: `.specify/extensions/git/scripts/powershell/create-new-feature-branch.ps1 -Json -Timestamp -ShortName "<short-name>" "<feature description>"`
+- **Bash or Python**: `--short-name "<short-name>" "<feature description>"`. For timestamp mode, add `--timestamp` before these arguments.
+- **PowerShell**: `-ShortName "<short-name>" "<feature description>"`. For timestamp mode, add `-Timestamp` before these arguments.
 
 **IMPORTANT**:
 - Do NOT pass `--number` — the script determines the correct next number automatically
-- Always include the JSON flag (`--json` for Bash, `-Json` for PowerShell) so the output can be parsed reliably
+- Keep the JSON flag in the command so the output can be parsed reliably
 - You must only ever run this script once per feature
 - The JSON output will contain `BRANCH_NAME` and `FEATURE_NUM`
 - Do not manually expand `branch_template`; the script reads the git extension config and applies it consistently

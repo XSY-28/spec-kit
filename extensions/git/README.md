@@ -111,9 +111,17 @@ When Git is not installed or the directory is not a Git repository:
 
 ## Scripts
 
-The extension bundles cross-platform scripts:
+Generated Git commands use the project's `--script` choice. Select `py` at
+initialization to use Python for repository initialization, feature branch
+creation, and auto-commit. For conventional auto-commit messages, Bash and
+Python accept `--message-file <path>` and PowerShell accepts
+`-MessageFile <path>`.
+
+Feature-branch scripts and their shared utilities:
 
 - `scripts/bash/create-new-feature-branch.sh` — Bash implementation (branch creation only)
 - `scripts/bash/git-common.sh` — Shared Git utilities (Bash)
 - `scripts/powershell/create-new-feature-branch.ps1` — PowerShell implementation (branch creation only)
 - `scripts/powershell/git-common.ps1` — Shared Git utilities (PowerShell)
+- `scripts/python/create_new_feature_branch.py` — Python implementation (branch creation only)
+- `scripts/python/git_common.py` — Shared Git utilities (Python)

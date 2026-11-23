@@ -5,7 +5,7 @@ Automatically commit changes after a Spec Kit command completes.
 Python port of ``auto-commit.sh`` / ``auto-commit.ps1``.
 Checks per-command config keys in git-config.yml before committing.
 
-Usage: auto_commit.py <event_name>
+Usage: auto_commit.py <event_name> [generated_message | --message-file <path>]
   e.g.: auto_commit.py after_specify
 """
 
@@ -55,26 +55,55 @@ def _strip_quotes(value: str) -> str:
     return re.sub(r"[\"']*$", "", value)
 
 
+def _read_generated_message(args: list[str]) -> str:
+    if not args:
+        return ""
+    if args[0] != "--message-file":
+        return args[0]
+    if len(args) < 2 or not args[1]:
+        raise ValueError("--message-file requires a path argument")
+    message_file = Path(args[1])
+    try:
+        message = message_file.read_text(encoding="utf-8-sig").rstrip("\n")
+        # Remove the transport file before detecting or staging Git changes.
+        message_file.unlink(missing_ok=True)
+    except FileNotFoundError as exc:
+        raise ValueError(f"message file '{message_file}' not found") from exc
+    except (OSError, UnicodeError) as exc:
+        raise ValueError(f"could not consume message file '{message_file}': {exc}") from exc
+    return message
+
+
 def _parse_auto_commit_config(
     config_file: Path, event_name: str
-) -> tuple[bool, str]:
+) -> tuple[bool, str, str]:
     """Parse the auto_commit section for this event, mirroring the bash line parser.
 
-    Returns (enabled, commit_msg). Looks for auto_commit.<event_name>.enabled
-    and .message, with auto_commit.default as fallback.
+    Returns (enabled, commit_msg, commit_style). Looks for the event-specific
+    settings, with auto_commit.default as fallback for an unconfigured event.
     """
     enabled = False
     commit_msg = ""
     default_enabled = False
     in_auto_commit = False
     in_event = False
+    commit_style = "fixed"
 
     try:
         content = config_file.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         # Unreadable or non-UTF-8 config is treated like a missing one:
         # auto-commit stays disabled instead of crashing with a traceback.
-        return False, ""
+        return False, "", commit_style
+
+    style_setting = re.search(r"^commit_style:[ \t]*([^\n]*)", content, re.MULTILINE)
+    if style_setting:
+        value = _strip_quotes(re.sub(r"[ \t]+#.*$", "", style_setting[1])).lower()
+        if value in {"fixed", "conventional"}:
+            commit_style = value
+        elif value:
+            _err(f"[specify] Warning: unknown commit_style '{value}' in git-config.yml (expected 'fixed' or 'conventional'); defaulting to 'fixed'")
+
     for record in content.splitlines(keepends=True):
         if not record.endswith("\n"):
             break
@@ -120,13 +149,18 @@ def _parse_auto_commit_config(
         if not re.search(rf"^\s*{re.escape(event_name)}:", content, re.MULTILINE):
             enabled = True
 
-    return enabled, commit_msg
+    return enabled, commit_msg, commit_style
 
 
 def main(argv: list[str]) -> int:
     event_name = argv[0] if argv else ""
     if not event_name:
-        _err(f"Usage: {Path(sys.argv[0]).name} <event_name>")
+        _err(f"Usage: {Path(sys.argv[0]).name} <event_name> [generated_message | --message-file <path>]")
+        return 1
+    try:
+        generated_message = _read_generated_message(argv[1:])
+    except ValueError as exc:
+        _err(f"[specify] Error: {exc}")
         return 1
 
     script_dir = Path(__file__).resolve().parent
@@ -153,7 +187,7 @@ def main(argv: list[str]) -> int:
         # No config file — auto-commit disabled by default
         return 0
 
-    enabled, commit_msg = _parse_auto_commit_config(config_file, event_name)
+    enabled, commit_msg, commit_style = _parse_auto_commit_config(config_file, event_name)
     if not enabled:
         return 0
 
@@ -183,6 +217,15 @@ def main(argv: list[str]) -> int:
     if _quiet("diff", "--quiet", "HEAD") and _quiet("diff", "--cached", "--quiet") and not untracked:
         _err(f"[specify] No changes to commit after {event_name}")
         return 0
+
+    if commit_style == "conventional":
+        if not generated_message:
+            _err(
+                "[specify] Error: commit_style is 'conventional' but no generated commit message "
+                "was supplied. Pass --message-file <path> or set commit_style: fixed."
+            )
+            return 1
+        commit_msg = generated_message
 
     # Derive a human-readable command name from the event
     # e.g., after_specify -> specify, before_plan -> plan

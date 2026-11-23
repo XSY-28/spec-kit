@@ -42,6 +42,10 @@ While this extension is disabled (or not installed), nothing in Spec Kit creates
 
 > NOTE: The command ID above is canonical. Invoke it using the syntax for your integration: `/speckit.agent-context.update` for dot-command integrations; `/speckit-agent-context-update` for hyphen/skills integrations (including Forge and Cline); `$speckit-agent-context-update` for Codex or ZCode in skills mode; or `/skill:speckit-agent-context-update` for Kimi.
 
+The generated command uses the saved project script choice. With `--script py`,
+updates run through `scripts/python/update_agent_context.py` in the installed
+extension.
+
 ## Configuration
 
 All configuration flows through the extension's own config file at `.specify/extensions/agent-context/agent-context-config.yml` ([agent-context-config.yml](./agent-context-config.yml) in the repo).
