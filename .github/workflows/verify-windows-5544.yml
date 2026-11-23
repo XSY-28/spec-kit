@@ -1,0 +1,58 @@
+name: Spec Kit 5544 native Windows proof
+
+on:
+  push:
+    branches: [codex/ci-spec-kit-5544-windows]
+
+permissions:
+  contents: read
+
+jobs:
+  legacy-powershell:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: c1205067bd320e6e47fd260eaffbec3c5a62004d
+          path: b
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 7ebedb37dda69dc3b9b5e3e7315d95a3b0e29027
+          path: c
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+      - name: Confirm exact checkouts and Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          if ($PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -ne 1) {
+            throw 'Windows PowerShell 5.1 required'
+          }
+          $baseline = git -C b rev-parse HEAD
+          $candidate = git -C c rev-parse HEAD
+          if ($baseline -ne 'c1205067bd320e6e47fd260eaffbec3c5a62004d') { throw 'Wrong baseline' }
+          if ($candidate -ne '7ebedb37dda69dc3b9b5e3e7315d95a3b0e29027') { throw 'Wrong candidate' }
+          "PowerShell $($PSVersionTable.PSVersion) / baseline $baseline / candidate $candidate"
+      - name: Install baseline CLI
+        working-directory: b
+        run: uv sync
+      - name: Install candidate CLI and test dependencies
+        working-directory: c
+        run: uv sync --extra test
+      - name: Exercise Copilot hooks on fresh and upgraded projects
+        shell: powershell
+        run: |
+          & '.\c\.venv\Scripts\python.exe' '.github/scripts/verify_windows_5544.py' `
+            'b/.venv/Scripts/specify.exe' 'c/.venv/Scripts/specify.exe' (Join-Path $PSHOME 'powershell.exe')
+      - name: Run Copilot and event regression suites
+        shell: powershell
+        working-directory: c
+        run: |
+          & '.\.venv\Scripts\python.exe' -m pytest -q tests/specify_cli/events tests/integrations/test_integration_copilot.py
